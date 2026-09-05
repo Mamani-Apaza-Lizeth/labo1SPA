@@ -1,0 +1,1688 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+
+<title>Registro de Estudiantes — Supabase + SQLite</title>
+
+<!-- =========================================================
+     TAILWIND CSS
+     ========================================================= -->
+<script src="https://cdn.tailwindcss.com"></script>
+
+<!-- =========================================================
+     SQL.JS
+     SQLite compilado a WebAssembly para ejecutarse
+     directamente dentro del navegador.
+     ========================================================= -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js"></script>
+
+<!-- =========================================================
+     SUPABASE
+     ========================================================= -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+
+  body {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  ::-webkit-scrollbar {
+    height: 8px;
+    width: 8px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #94a3b8;
+    border-radius: 9999px;
+  }
+
+  .toast {
+    transition:
+      opacity 0.3s ease,
+      transform 0.3s ease;
+  }
+
+</style>
+
+</head>
+
+
+<body class="min-h-screen bg-slate-100 text-slate-800 antialiased">
+
+
+<!-- =========================================================
+     ENCABEZADO
+     ========================================================= -->
+
+<header class="bg-indigo-700 text-white shadow-md sticky top-0 z-20">
+
+  <div class="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
+
+    <div>
+
+      <h1 class="text-lg sm:text-2xl font-bold leading-tight">
+        📚 Registro de Estudiantes
+      </h1>
+
+      <p class="text-indigo-200 text-xs sm:text-sm">
+        Supabase + SQLite
+      </p>
+
+    </div>
+
+
+    <span
+      id="db-status"
+      class="text-xs sm:text-sm bg-indigo-800/60 px-3 py-1 rounded-full whitespace-nowrap"
+    >
+      Conectando…
+    </span>
+
+  </div>
+
+</header>
+
+
+
+<main class="max-w-5xl mx-auto p-4 space-y-6">
+
+
+<!-- =========================================================
+     FORMULARIO
+     ========================================================= -->
+
+<section class="bg-white rounded-2xl shadow p-4 sm:p-6">
+
+  <h2 class="text-base sm:text-lg font-semibold mb-4 text-slate-700">
+    ➕ Nuevo estudiante
+  </h2>
+
+
+  <form
+    id="form-estudiante"
+    class="grid grid-cols-1 sm:grid-cols-4 gap-3"
+  >
+
+
+    <!-- NOMBRE -->
+
+    <div class="sm:col-span-2">
+
+      <label
+        class="block text-xs font-medium text-slate-500 mb-1"
+      >
+        Nombre
+      </label>
+
+      <input
+        id="input-nombre"
+        type="text"
+        required
+        placeholder="Ej: Ana Gómez"
+        class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+      >
+
+    </div>
+
+
+
+    <!-- MATERIA -->
+
+    <div>
+
+      <label
+        class="block text-xs font-medium text-slate-500 mb-1"
+      >
+        Materia
+      </label>
+
+      <input
+        id="input-materia"
+        type="text"
+        required
+        placeholder="Ej: Bases de Datos"
+        class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+      >
+
+    </div>
+
+
+
+    <!-- NOTA -->
+
+    <div>
+
+      <label
+        class="block text-xs font-medium text-slate-500 mb-1"
+      >
+        Nota
+      </label>
+
+      <input
+        id="input-nota"
+        type="number"
+        min="0"
+        max="100"
+        required
+        placeholder="0-100"
+        class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+      >
+
+    </div>
+
+
+
+    <!-- BOTÓN GUARDAR -->
+
+    <div class="sm:col-span-4 flex justify-end">
+
+      <button
+        type="submit"
+        id="btn-guardar"
+        class="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 active:scale-95 transition text-white font-medium px-5 py-2.5 rounded-lg text-sm shadow"
+      >
+        Guardar estudiante
+      </button>
+
+    </div>
+
+  </form>
+
+</section>
+
+
+
+<!-- =========================================================
+     TABLA
+     ========================================================= -->
+
+<section class="bg-white rounded-2xl shadow p-4 sm:p-6">
+
+
+  <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+
+    <h2 class="text-base sm:text-lg font-semibold text-slate-700">
+      📋 Estudiantes registrados
+    </h2>
+
+    <span
+      id="contador"
+      class="text-xs text-slate-400"
+    >
+      0 registros
+    </span>
+
+  </div>
+
+
+
+  <div class="overflow-x-auto rounded-lg border border-slate-200">
+
+    <table class="w-full text-sm text-left">
+
+      <thead class="bg-slate-50 text-slate-500 uppercase text-xs">
+
+        <tr>
+
+          <th class="px-3 py-2">
+            ID
+          </th>
+
+          <th class="px-3 py-2">
+            Nombre
+          </th>
+
+          <th class="px-3 py-2">
+            Materia
+          </th>
+
+          <th class="px-3 py-2">
+            Nota
+          </th>
+
+          <th class="px-3 py-2 text-right">
+            Acciones
+          </th>
+
+        </tr>
+
+      </thead>
+
+
+      <tbody
+        id="tabla-body"
+        class="divide-y divide-slate-100"
+      >
+
+        <tr>
+
+          <td
+            colspan="5"
+            class="px-3 py-6 text-center text-slate-400"
+          >
+            Cargando estudiantes…
+          </td>
+
+        </tr>
+
+      </tbody>
+
+    </table>
+
+  </div>
+
+</section>
+
+
+
+<!-- =========================================================
+     SQLITE: EXPORTAR Y CARGAR
+     ========================================================= -->
+
+<section class="bg-white rounded-2xl shadow p-4 sm:p-6">
+
+  <h2 class="text-base sm:text-lg font-semibold mb-1 text-slate-700">
+    💾 Archivo de base de datos SQLite
+  </h2>
+
+
+  <p class="text-xs sm:text-sm text-slate-400 mb-4">
+
+    Puedes descargar la base de datos como un archivo
+    <strong>.sqlite</strong> y volver a cargarla posteriormente.
+
+  </p>
+
+
+  <div class="flex flex-col sm:flex-row gap-3">
+
+
+    <!-- =====================================================
+         BOTÓN EXPORTAR
+         ===================================================== -->
+
+    <button
+      id="btn-exportar"
+      type="button"
+      class="flex-1 bg-emerald-600 hover:bg-emerald-700 active:scale-95 transition text-white font-medium px-4 py-2.5 rounded-lg text-sm shadow"
+    >
+
+      ⬇️ Exportar DB (.sqlite)
+
+    </button>
+
+
+
+    <!-- =====================================================
+         BOTÓN CARGAR
+         ===================================================== -->
+
+    <label
+      for="input-cargar"
+      class="flex-1 text-center cursor-pointer bg-slate-600 hover:bg-slate-700 active:scale-95 transition text-white font-medium px-4 py-2.5 rounded-lg text-sm shadow"
+    >
+
+      ⬆️ Cargar DB
+
+    </label>
+
+
+    <input
+      id="input-cargar"
+      type="file"
+      accept=".sqlite,.db,.sqlite3"
+      class="hidden"
+    >
+
+  </div>
+
+</section>
+
+
+
+<!-- =========================================================
+     INFORMACIÓN
+     ========================================================= -->
+
+
+
+
+<p class="text-center text-xs text-slate-400 pb-6">
+
+  Sistema de registro de estudiantes —
+  Supabase + SQLite + HTML + JavaScript
+
+</p>
+
+
+</main>
+
+
+
+<!-- =========================================================
+     TOAST
+     ========================================================= -->
+
+<div
+  id="toast"
+  class="toast fixed bottom-4 left-1/2 -translate-x-1/2 opacity-0 pointer-events-none
+  bg-slate-900 text-white text-sm px-4 py-2 rounded-full shadow-lg z-50"
+>
+</div>
+
+
+
+<script>
+
+/* ================================================================
+   CONFIGURACIÓN DE SUPABASE
+   ================================================================ */
+
+const SUPABASE_URL =
+  "https://lpgesqdonpofoerpopkk.supabase.co";
+
+
+const SUPABASE_PUBLISHABLE_KEY =
+  "sb_publishable_utnY7OECRDGSr5bbOixnFQ__W4iaOGH";
+
+
+/*
+  Creamos la conexión con Supabase.
+*/
+
+const supabaseClient =
+  window.supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_PUBLISHABLE_KEY
+  );
+
+
+
+/* ================================================================
+   VARIABLES SQLITE
+   ================================================================ */
+
+let SQL = null;
+
+let db = null;
+
+
+
+/* ================================================================
+   REFERENCIAS HTML
+   ================================================================ */
+
+const dbStatusEl =
+  document.getElementById("db-status");
+
+
+const formEl =
+  document.getElementById("form-estudiante");
+
+
+const tablaBodyEl =
+  document.getElementById("tabla-body");
+
+
+const contadorEl =
+  document.getElementById("contador");
+
+
+const toastEl =
+  document.getElementById("toast");
+
+
+const btnGuardar =
+  document.getElementById("btn-guardar");
+
+
+const btnExportar =
+  document.getElementById("btn-exportar");
+
+
+const inputCargarEl =
+  document.getElementById("input-cargar");
+
+
+
+/* ================================================================
+   TOAST
+   ================================================================ */
+
+function mostrarToast(mensaje) {
+
+  toastEl.textContent =
+    mensaje;
+
+
+  toastEl.style.opacity =
+    "1";
+
+
+  toastEl.style.transform =
+    "translate(-50%, -8px)";
+
+
+  clearTimeout(
+    mostrarToast._t
+  );
+
+
+  mostrarToast._t =
+    setTimeout(() => {
+
+      toastEl.style.opacity =
+        "0";
+
+
+      toastEl.style.transform =
+        "translate(-50%, 0)";
+
+    }, 1800);
+
+}
+
+
+
+/* ================================================================
+   COLOR DE NOTA
+   ================================================================ */
+
+function colorNota(nota) {
+
+  if (nota >= 51) {
+
+    return "bg-emerald-100 text-emerald-700";
+
+  }
+
+
+  if (nota >= 30) {
+
+    return "bg-amber-100 text-amber-700";
+
+  }
+
+
+  return "bg-red-100 text-red-700";
+
+}
+
+
+
+/* ================================================================
+   ESCAPAR HTML
+   ================================================================ */
+
+function escapeHtml(texto) {
+
+  const div =
+    document.createElement("div");
+
+
+  div.textContent =
+    texto ?? "";
+
+
+  return div.innerHTML;
+
+}
+
+
+
+/* ================================================================
+   INICIALIZAR SQLITE
+   ================================================================ */
+
+async function inicializarSQLite() {
+
+  try {
+
+    SQL =
+      await initSqlJs({
+
+        locateFile:
+          file =>
+            `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${file}`
+
+      });
+
+
+    crearBaseSQLite();
+
+
+    console.log(
+      "SQLite inicializado correctamente."
+    );
+
+
+  } catch (error) {
+
+    console.error(
+      "Error iniciando SQLite:",
+      error
+    );
+
+
+    mostrarToast(
+      "No se pudo iniciar SQLite."
+    );
+
+  }
+
+}
+
+
+
+/* ================================================================
+   CREAR BASE SQLITE
+   ================================================================ */
+
+function crearBaseSQLite() {
+
+  db =
+    new SQL.Database();
+
+
+  db.run(`
+
+    CREATE TABLE IF NOT EXISTS estudiantes (
+
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+      nombre TEXT NOT NULL,
+
+      materia TEXT NOT NULL,
+
+      nota INTEGER NOT NULL
+
+    );
+
+  `);
+
+}
+
+
+
+/* ================================================================
+   CARGAR ESTUDIANTES DESDE SUPABASE
+   ================================================================ */
+
+async function cargarEstudiantes() {
+
+  try {
+
+    dbStatusEl.textContent =
+      "🔄 Cargando...";
+
+
+    const { data, error } =
+
+      await supabaseClient
+
+        .from("estudiantes")
+
+        .select(
+          "id, nombre, materia, nota"
+        )
+
+        .order(
+          "id",
+          {
+            ascending: false
+          }
+        );
+
+
+    if (error) {
+
+      throw error;
+
+    }
+
+
+    refrescarTablaSupabase(data);
+
+
+    /*
+      Actualizamos la copia SQLite
+      con los datos de Supabase.
+    */
+
+    sincronizarSQLite(data);
+
+
+    dbStatusEl.textContent =
+      "✅ Base de datos conectada";
+
+
+  } catch (error) {
+
+    console.error(
+      "Error Supabase:",
+      error
+    );
+
+
+    dbStatusEl.textContent =
+      "⚠️ Error de conexión";
+
+
+    mostrarToast(
+      "No se pudieron cargar los estudiantes."
+    );
+
+  }
+
+}
+
+
+
+/* ================================================================
+   MOSTRAR DATOS DE SUPABASE
+   ================================================================ */
+
+function refrescarTablaSupabase(
+  estudiantes
+) {
+
+  tablaBodyEl.innerHTML =
+    "";
+
+
+  if (
+    !estudiantes ||
+    estudiantes.length === 0
+  ) {
+
+    tablaBodyEl.innerHTML = `
+
+      <tr>
+
+        <td
+          colspan="5"
+          class="px-3 py-6 text-center text-slate-400"
+        >
+
+          Aún no hay estudiantes registrados.
+
+        </td>
+
+      </tr>
+
+    `;
+
+
+    contadorEl.textContent =
+      "0 registros";
+
+
+    return;
+
+  }
+
+
+  contadorEl.textContent =
+
+    `${estudiantes.length} registro${
+      estudiantes.length === 1
+        ? ""
+        : "s"
+    }`;
+
+
+
+  for (
+    const estudiante of estudiantes
+  ) {
+
+    const tr =
+      document.createElement("tr");
+
+
+    tr.className =
+      "hover:bg-slate-50";
+
+
+    tr.innerHTML = `
+
+      <td
+        class="px-3 py-2 text-slate-400"
+      >
+
+        ${estudiante.id}
+
+      </td>
+
+
+      <td
+        class="px-3 py-2 font-medium"
+      >
+
+        ${escapeHtml(
+          estudiante.nombre
+        )}
+
+      </td>
+
+
+      <td
+        class="px-3 py-2"
+      >
+
+        ${escapeHtml(
+          estudiante.materia
+        )}
+
+      </td>
+
+
+      <td
+        class="px-3 py-2"
+      >
+
+        <span
+          class="px-2 py-0.5 rounded-full text-xs font-semibold ${colorNota(estudiante.nota)}"
+        >
+
+          ${estudiante.nota}
+
+        </span>
+
+      </td>
+
+
+      <td
+        class="px-3 py-2 text-right"
+      >
+
+        <button
+
+          data-id="${estudiante.id}"
+
+          class="btn-borrar text-red-500 hover:text-red-700 text-xs font-medium"
+
+        >
+
+          Eliminar
+
+        </button>
+
+      </td>
+
+    `;
+
+
+    tablaBodyEl.appendChild(tr);
+
+  }
+
+
+
+  /*
+    Conectamos los botones de eliminar.
+  */
+
+  document
+    .querySelectorAll(".btn-borrar")
+    .forEach(btn => {
+
+      btn.addEventListener(
+        "click",
+        () => {
+
+          eliminarEstudiante(
+            Number(
+              btn.dataset.id
+            )
+          );
+
+        }
+      );
+
+    });
+
+}
+
+
+
+/* ================================================================
+   SINCRONIZAR SUPABASE → SQLITE
+   ================================================================ */
+
+function sincronizarSQLite(
+  estudiantes
+) {
+
+  if (!db) {
+
+    return;
+
+  }
+
+
+  try {
+
+    db.run(
+      "DELETE FROM estudiantes"
+    );
+
+
+    for (
+      const estudiante
+      of estudiantes
+    ) {
+
+      db.run(
+
+        `INSERT INTO estudiantes
+         (id, nombre, materia, nota)
+         VALUES (?, ?, ?, ?)`,
+
+        [
+
+          estudiante.id,
+
+          estudiante.nombre,
+
+          estudiante.materia,
+
+          estudiante.nota
+
+        ]
+
+      );
+
+    }
+
+
+    console.log(
+      "SQLite sincronizado con Supabase."
+    );
+
+
+  } catch (error) {
+
+    console.error(
+      "Error sincronizando SQLite:",
+      error
+    );
+
+  }
+
+}
+
+
+
+/* ================================================================
+   GUARDAR ESTUDIANTE
+   ================================================================ */
+
+formEl.addEventListener(
+  "submit",
+  async (e) => {
+
+    e.preventDefault();
+
+
+    const nombre =
+      document
+        .getElementById("input-nombre")
+        .value
+        .trim();
+
+
+    const materia =
+      document
+        .getElementById("input-materia")
+        .value
+        .trim();
+
+
+    const nota =
+      Number(
+        document
+          .getElementById("input-nota")
+          .value
+      );
+
+
+    /*
+      Validamos los datos.
+    */
+
+    if (
+
+      !nombre ||
+
+      !materia ||
+
+      Number.isNaN(nota) ||
+
+      nota < 0 ||
+
+      nota > 100
+
+    ) {
+
+      mostrarToast(
+        "Completa los campos correctamente."
+      );
+
+      return;
+
+    }
+
+
+
+    try {
+
+      btnGuardar.disabled =
+        true;
+
+
+      btnGuardar.textContent =
+        "Guardando...";
+
+
+      /*
+        PRIMERO:
+        Guardamos en Supabase.
+      */
+
+      const {
+        data,
+        error
+      } =
+
+        await supabaseClient
+
+          .from("estudiantes")
+
+          .insert({
+
+            nombre:
+              nombre,
+
+            materia:
+              materia,
+
+            nota:
+              nota
+
+          })
+
+          .select();
+
+
+      if (error) {
+
+        throw error;
+
+      }
+
+
+      console.log(
+        "Estudiante guardado en Supabase:",
+        data
+      );
+
+
+      /*
+        Limpiamos formulario.
+      */
+
+      formEl.reset();
+
+
+      document
+        .getElementById("input-nombre")
+        .focus();
+
+
+      mostrarToast(
+        "Estudiante guardado ✔"
+      );
+
+
+      /*
+        Recargamos desde Supabase.
+        Esto también actualiza SQLite.
+      */
+
+      await cargarEstudiantes();
+
+
+    } catch (error) {
+
+      console.error(
+        "Error guardando:",
+        error
+      );
+
+
+      mostrarToast(
+        "No se pudo guardar el estudiante."
+      );
+
+
+    } finally {
+
+      btnGuardar.disabled =
+        false;
+
+
+      btnGuardar.textContent =
+        "Guardar estudiante";
+
+    }
+
+  }
+);
+
+
+
+/* ================================================================
+   ELIMINAR ESTUDIANTE
+   ================================================================ */
+
+async function eliminarEstudiante(
+  id
+) {
+
+  const confirmar =
+    confirm(
+      "¿Seguro que quieres eliminar este estudiante?"
+    );
+
+
+  if (!confirmar) {
+
+    return;
+
+  }
+
+
+  try {
+
+    /*
+      Eliminamos de Supabase.
+    */
+
+    const { error } =
+
+      await supabaseClient
+
+        .from("estudiantes")
+
+        .delete()
+
+        .eq(
+          "id",
+          id
+        );
+
+
+    if (error) {
+
+      throw error;
+
+    }
+
+
+    /*
+      Volvemos a cargar.
+      SQLite también se actualiza.
+    */
+
+    await cargarEstudiantes();
+
+
+    mostrarToast(
+      "Registro eliminado ✔"
+    );
+
+
+  } catch (error) {
+
+    console.error(
+      "Error eliminando:",
+      error
+    );
+
+
+    mostrarToast(
+      "No se pudo eliminar el registro."
+    );
+
+  }
+
+}
+
+
+
+/* ================================================================
+   EXPORTAR SQLITE
+   ================================================================ */
+
+btnExportar.addEventListener(
+  "click",
+  () => {
+
+    try {
+
+      /*
+        Comprobamos que SQLite exista.
+      */
+
+      if (!db) {
+
+        mostrarToast(
+          "SQLite todavía no está listo."
+        );
+
+        return;
+
+      }
+
+
+      /*
+        db.export() obtiene los bytes
+        de la base de datos SQLite.
+      */
+
+      const bytes =
+        db.export();
+
+
+      /*
+        Creamos un archivo.
+      */
+
+      const blob =
+        new Blob(
+
+          [bytes],
+
+          {
+            type:
+              "application/x-sqlite3"
+          }
+
+        );
+
+
+      /*
+        Creamos una URL temporal.
+      */
+
+      const url =
+        URL.createObjectURL(
+          blob
+        );
+
+
+      /*
+        Nombre del archivo.
+      */
+
+      const fecha =
+        new Date()
+          .toISOString()
+          .slice(
+            0,
+            10
+          );
+
+
+      const enlace =
+        document.createElement("a");
+
+
+      enlace.href =
+        url;
+
+
+      enlace.download =
+        `estudiantes_${fecha}.sqlite`;
+
+
+      document
+        .body
+        .appendChild(enlace);
+
+
+      /*
+        Simulamos el click
+        para iniciar la descarga.
+      */
+
+      enlace.click();
+
+
+      enlace.remove();
+
+
+      URL.revokeObjectURL(
+        url
+      );
+
+
+      mostrarToast(
+        "Base de datos exportada ⬇️"
+      );
+
+
+    } catch (error) {
+
+      console.error(
+        "Error exportando:",
+        error
+      );
+
+
+      mostrarToast(
+        "No se pudo exportar la BD."
+      );
+
+    }
+
+  }
+);
+
+
+
+/* ================================================================
+   CARGAR SQLITE
+   ================================================================ */
+
+inputCargarEl.addEventListener(
+  "change",
+  async (e) => {
+
+    const archivo =
+      e.target.files[0];
+
+
+    if (!archivo) {
+
+      return;
+
+    }
+
+
+    try {
+
+      /*
+        Leemos el archivo.
+      */
+
+      const buffer =
+        await archivo.arrayBuffer();
+
+
+      const bytes =
+        new Uint8Array(
+          buffer
+        );
+
+
+      /*
+        Abrimos el archivo
+        como una BD SQLite.
+      */
+
+      db =
+        new SQL.Database(
+          bytes
+        );
+
+
+      /*
+        Verificamos que exista
+        la tabla estudiantes.
+      */
+
+      const tabla =
+        db.exec(`
+
+          SELECT name
+
+          FROM sqlite_master
+
+          WHERE type = 'table'
+
+          AND name = 'estudiantes';
+
+        `);
+
+
+      if (
+        tabla.length === 0
+      ) {
+
+        /*
+          El archivo no tiene
+          nuestra tabla.
+        */
+
+        throw new Error(
+          "La tabla estudiantes no existe."
+        );
+
+      }
+
+
+      /*
+        Obtenemos los datos
+        del SQLite cargado.
+      */
+
+      const resultado =
+        db.exec(`
+
+          SELECT
+            id,
+            nombre,
+            materia,
+            nota
+
+          FROM estudiantes
+
+          ORDER BY id DESC;
+
+        `);
+
+
+      /*
+        Si no tiene registros.
+      */
+
+      if (
+        resultado.length === 0
+      ) {
+
+        refrescarTablaSQLite(
+          []
+        );
+
+
+        mostrarToast(
+          "SQLite cargado, pero está vacío."
+        );
+
+
+        return;
+
+      }
+
+
+      /*
+        Convertimos los resultados
+        de sql.js a objetos.
+      */
+
+      const columnas =
+        resultado[0].columns;
+
+
+      const valores =
+        resultado[0].values;
+
+
+      const estudiantes =
+        valores.map(
+          fila => {
+
+            return {
+
+              id:
+                fila[
+                  columnas.indexOf(
+                    "id"
+                  )
+                ],
+
+              nombre:
+                fila[
+                  columnas.indexOf(
+                    "nombre"
+                  )
+                ],
+
+              materia:
+                fila[
+                  columnas.indexOf(
+                    "materia"
+                  )
+                ],
+
+              nota:
+                fila[
+                  columnas.indexOf(
+                    "nota"
+                  )
+                ]
+
+            };
+
+          }
+        );
+
+
+      /*
+        Mostramos los datos
+        que estaban dentro
+        del archivo SQLite.
+      */
+
+      refrescarTablaSQLite(
+        estudiantes
+      );
+
+
+      mostrarToast(
+        "Base de datos SQLite cargada ⬆️"
+      );
+
+
+      console.log(
+        "Datos cargados desde SQLite:",
+        estudiantes
+      );
+
+
+    } catch (error) {
+
+      console.error(
+        "Error cargando SQLite:",
+        error
+      );
+
+
+      mostrarToast(
+        "El archivo no es una BD SQLite válida."
+      );
+
+    } finally {
+
+      /*
+        Permitimos volver a seleccionar
+        el mismo archivo.
+      */
+
+      inputCargarEl.value =
+        "";
+
+    }
+
+  }
+);
+
+
+
+/* ================================================================
+   MOSTRAR DATOS DE SQLITE CARGADO
+   ================================================================ */
+
+function refrescarTablaSQLite(
+  estudiantes
+) {
+
+  tablaBodyEl.innerHTML =
+    "";
+
+
+  if (
+    !estudiantes ||
+    estudiantes.length === 0
+  ) {
+
+    tablaBodyEl.innerHTML = `
+
+      <tr>
+
+        <td
+          colspan="5"
+          class="px-3 py-6 text-center text-slate-400"
+        >
+
+          La base SQLite no contiene estudiantes.
+
+        </td>
+
+      </tr>
+
+    `;
+
+
+    contadorEl.textContent =
+      "0 registros";
+
+
+    return;
+
+  }
+
+
+  contadorEl.textContent =
+
+    `${estudiantes.length} registro${
+      estudiantes.length === 1
+        ? ""
+        : "s"
+    }`;
+
+
+  for (
+    const estudiante of estudiantes
+  ) {
+
+    const tr =
+      document.createElement("tr");
+
+
+    tr.className =
+      "hover:bg-slate-50";
+
+
+    tr.innerHTML = `
+
+      <td
+        class="px-3 py-2 text-slate-400"
+      >
+
+        ${estudiante.id}
+
+      </td>
+
+
+      <td
+        class="px-3 py-2 font-medium"
+      >
+
+        ${escapeHtml(
+          estudiante.nombre
+        )}
+
+      </td>
+
+
+      <td
+        class="px-3 py-2"
+      >
+
+        ${escapeHtml(
+          estudiante.materia
+        )}
+
+      </td>
+
+
+      <td
+        class="px-3 py-2"
+      >
+
+        <span
+          class="px-2 py-0.5 rounded-full text-xs font-semibold ${colorNota(estudiante.nota)}"
+        >
+
+          ${estudiante.nota}
+
+        </span>
+
+      </td>
+
+
+      <td
+        class="px-3 py-2 text-right text-xs text-slate-400"
+      >
+
+        SQLite
+
+      </td>
+
+    `;
+
+
+    tablaBodyEl.appendChild(
+      tr
+    );
+
+  }
+
+}
+
+
+
+/* ================================================================
+   INICIAR TODO
+   ================================================================ */
+
+async function iniciarAplicacion() {
+
+  /*
+    Primero iniciamos SQLite.
+  */
+
+  await inicializarSQLite();
+
+
+  /*
+    Después cargamos Supabase.
+  */
+
+  await cargarEstudiantes();
+
+}
+
+
+iniciarAplicacion();
+
+</script>
+
+</body>
+</html>
